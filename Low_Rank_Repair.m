@@ -20,11 +20,11 @@ opts.tol = 1e-6;
 opts.maxit = 1000;
 opts.A0 = zeros(m,n);
 opts.B0 = zeros(m,n);
-% opts.W0 = zeros(m,n);
-opts.Lam0 = zeros(m,n);
-% opts.Lam1 = zeros(m,n);
+opts.W0 = zeros(m,n);
+opts.Lam1 = zeros(m,n);
+opts.Lam2 = zeros(m,n);
 opts.print = 1;
-out = LADMM(D, t/(1-t), opts); % Default value
+out = LADMM(D, t/(1-t), t/(1-t), opts); % Default value
 
 
 

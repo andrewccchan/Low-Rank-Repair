@@ -1,4 +1,4 @@
-function out = LADMM(D, tau, opts)
+function out = LADMM(D, tau, alpha, opts)
 
 %% Clarify the paramenters:
 % In paper:                            In this code:
@@ -6,10 +6,13 @@ function out = LADMM(D, tau, opts)
 %    of the Lagrangian              || 
 % mu : step size for Y1 and Y2      || beta
 % rho : step size for mu            || (omitted)
-% lambda : lambda * ||W||           || tau : tau * ||W||, the penalty term
-% D : The original image            || C
-% E : Sparse matrix                 || A
-% W : low rank matrix               || B = (C - A)
+% lambda : lambda * ||W||           || alpha : alpha * ||E||, the penalty term
+% D : The original image            || D
+% E : Sparse matrix                 || E
+% W : low rank matrix, sparse term  || W
+% A : lwo rank matix, low rank term || A
+% tau : the coeff. of W
+% alpha : the coeff. of E
 beta = .25/mean(abs(D(:)));
 tol = 1.e-6;
 maxit = 1000;
@@ -23,11 +26,13 @@ if isfield(opts,'print'); print = opts.print; end
 [m,n] = size(D);
 E = zeros(m,n);
 A = zeros(m,n);
-Lambda = zeros(m,n);
+W = zeros(m,n);
+Lambda1 = zeros(m,n);
 if isfield(opts,'E0');  E = opts.E0; end
 if isfield(opts,'A0');  A = opts.A0; end
-if isfield(opts,'Lam0'); Lambda = opts.Lam0; end
-
+if isfield(opts,'W0');  W = opts.W0; end
+if isfield(opts,'Lam1'); Lambda1 = opts.Lam1; end
+if isfield(opts, 'Lam2'); Lambda2 = opts.Lam2; end
 %% keep record
 % Not used in this demo
 RECORD_ERRSP = 0; RECORD_ERRLR = 0; RECORD_OBJ = 0; RECORD_RES = 0;
@@ -40,15 +45,14 @@ if isfield(opts,'record_res'); RECORD_RES = 1; out.res = []; end
 % Variables here are defined by myself 
 B1 = dctmtx(m)'; % DCT orthogonal mxm matrix
 B2 = dctmtx(n)'; 
-eta = 3; % Use the same parameter as the paper
+eta1 = 3; % Use the same parameter as the paper
+eta2 = 3;
 % Some reminders : 
-fprintf('NOTICE : eta is omitted in updating A\n');
-fprintf('mexsvd is replaced by svd\n');
-
-if(size(Lambda, 1) < size(Lambda,2))
-    dia = size(Lambda, 1);
+fprintf('Beaware of the update oder');
+if(size(Lambda1, 1) < size(Lambda1,2))
+    dia = size(Lambda1, 1);
 else 
-    dia = size(Lambda, 2);
+    dia = size(Lambda1, 2);
 end
 % --------------------------------------
 
@@ -56,19 +60,25 @@ end
 for iter = 1:maxit
     
     nrmAB = norm([E,A],'fro');
-      
-    %% A - subproblem, in this case, E
+  
+    %% W - subproblem
+    Y = W - (B1' * (B1 * W * B2' + E - D + Lambda2/beta) * B2 + W - A - Lambda1/beta)/eta1;
+    dW = W;
+    W = sign(Y) .* max(abs(Y) - tau/beta/eta1, 0); % Equivalent to lambda/mu in the paper, eta is omitted
+    dW = W - dW;
+
+    %% E - subproblem
     % Procedure of this snippest of code is to min.
     % the sparse term
-    Y = Lambda / beta + D - B1 * A * B2';
+    Y = E - ( (E + B1 * W * B2' - D) + Lambda2/beta )/eta2;
     dE = E;
-    E = sign(Y) .* max(abs(Y) - tau/beta, 0); % Equivalent to lambda/mu in the paper, eta is omitted
+    E = sign(Y) .* max(abs(Y) - alpha/beta/eta2, 0); % Equivalent to lambda/mu in the paper, eta is omitted
     dE = E - dE;
     
     %% B - subprolbme, in this case A (low rank)
     % Procedure of this function is to calculate the 
     % shrinkage operator
-    Y = A - (B1' * (B1 * A * B2' + E - D + Lambda/beta) * B2)/eta;
+    Y = W - Lambda1/beta;
     dA = A;
     [U,sig,VT] = svd(Y);
     VT = VT';
@@ -82,7 +92,7 @@ for iter = 1:maxit
     %% keep record
     if RECORD_ERRSP; errSP = norm(E - SP,'fro') / (1 + nrmSP); out.errsSP = [out.errsSP; errSP]; end
     if RECORD_ERRLR; errLR = norm(A - LR,'fro') / (1 + nrmLR); out.errsLR = [out.errsLR; errLR]; end
-    if RECORD_OBJ;   obj = tau*norm(E(:),1) + sum(diag(D));    out.obj = [out.obj; obj];         end
+    if RECORD_OBJ;   obj = alpha*norm(E(:),1) + sum(diag(D));    out.obj = [out.obj; obj];         end
     if RECORD_RES;   res = norm(E + A - D, 'fro');             out.res = [out.res; res];         end
     
     %% stopping criterion
@@ -99,7 +109,7 @@ for iter = 1:maxit
 %     end
    
     %% Update Lambda, this line is crucial to the whole result
-    Lambda = Lambda + beta * (E + product - D);
+    Lambda1 = Lambda1 + beta * (E + product - D);
    %% Normalization, edited by Andrew 
     if(E ~= 0) 
         E = E ./ norm(E, 'fro');
@@ -107,8 +117,8 @@ for iter = 1:maxit
     if(A ~= 0)
         A = A ./ norm(A, 'fro');
     end
-    if(Lambda ~= 0)
-        Lambda = Lambda / norm(Lambda, 'fro');
+    if(Lambda1 ~= 0)
+        Lambda1 = Lambda1 / norm(Lambda1, 'fro');
     end    
 end
 
