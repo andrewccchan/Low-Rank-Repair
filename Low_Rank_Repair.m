@@ -6,12 +6,12 @@ function LADMM_Demo
 % ----------------------------------------------------------
 clear; clc;
 %%
-D = imread('input.png');
+D = imread('input_old.png');
 D = double(D(:,:,1)); % Only consider the first channel
 [m, n, r] = size(D);
-
+D = D ./ norm(D, 'fro');
 % Decide the second input to the solver
-t = 0.01; % This term determines the penalty
+t = 0.05; % This term determines the penalty
 
 %% algorithm
 opts = [];
@@ -23,5 +23,7 @@ opts.B0 = zeros(m,n);
 opts.Lam0 = zeros(m,n);
 opts.print = 1;
 out = LADMM_r2(D, t/(1-t), opts); % Default value
+
+
 
 %% End of the code
