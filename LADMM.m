@@ -44,19 +44,26 @@ eta = 3; % Use the same parameter as the paper
 % Some reminders : 
 fprintf('NOTICE : eta is omitted in updating A\n');
 fprintf('mexsvd is replaced by svd\n');
+
+if(size(Lambda, 1) < size(Lambda,2))
+    dia = size(Lambda, 1);
+else 
+    dia = size(Lambda, 2);
+end
 % --------------------------------------
 
 % main
 for iter = 1:maxit
     
     nrmAB = norm([A,B],'fro');
-    
+      
     %% A - subproblem, in this case, E
     % Procedure of this snippest of code is to min.
     % the sparse term
     % X = Lambda / beta + C;
     Y = Lambda / beta + C - B1 * B * B2';
     dA = A;
+%    A = max(Y - tau/beta, 0) .* eye(dia);
     A = sign(Y) .* max(abs(Y) - tau/beta, 0); % Equivalent to lambda/mu in the paper, eta is omitted
     dA = A - dA;
     
@@ -71,9 +78,10 @@ for iter = 1:maxit
     ind = find(D > 1/beta);
     D = diag(D(ind) - 1/beta);
     B = U(:,ind) * D * VT(ind,:);
+ %   B = U * (max(D - 1/beta, 0) .* eye(dia))* VT;
 %     B = U * sign(D) .* max(abs(D) - 1/beta, 0) * VT;
     dB = B - dB;
-    
+   com = B1 * B * B2'; % This variable is used in latter code
     %% keep record
     if RECORD_ERRSP; errSP = norm(A - SP,'fro') / (1 + nrmSP); out.errsSP = [out.errsSP; errSP]; end
     if RECORD_ERRLR; errLR = norm(B - LR,'fro') / (1 + nrmLR); out.errsLR = [out.errsLR; errLR]; end
@@ -89,12 +97,22 @@ for iter = 1:maxit
     
 %     if(mod(iter, 10) ~= 0) 
         figure;
-        subplot(1,2,1); imshow(A); title('A'); 
-        subplot(1,2,2); imagesc(B1 * B * B2'); title('B');
+        subplot(1,2,1); imagesc(A); title('A'); 
+        subplot(1,2,2); imagesc(com); title('B');
 %     end
    
-    %% Update Lambda
-    Lambda = Lambda - beta * (A + B - C);
+    %% Update Lambda, this line is crucial to the whole result
+    Lambda = Lambda + beta * (A + B1 * B * B2' - C);
+   %% Normalization, edited by Andrew 
+    if(A ~= 0) 
+        A = A ./ norm(A, 'fro');
+    end
+    if(B ~= 0)
+        B = B ./ norm(B, 'fro');
+    end
+    if(Lambda ~= 0)
+        Lambda = Lambda / norm(Lambda, 'fro');
+    end    
 end
 
 % output
