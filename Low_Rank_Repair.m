@@ -1,4 +1,4 @@
-function LADMM_Demo
+function Low_Rank_Repair
 %% The target of this code is to solve the following problem
 % ----------------------------------------------------------
 % min_A,E |A|_*+alpha*|E|_1
@@ -6,7 +6,7 @@ function LADMM_Demo
 % ----------------------------------------------------------
 clear; clc;
 %%
-D = imread('input_old.png');
+D = imread('input.png');
 D = double(D(:,:,1)); % Only consider the first channel
 [m, n, r] = size(D);
 D = D ./ norm(D, 'fro');
@@ -20,9 +20,11 @@ opts.tol = 1e-6;
 opts.maxit = 1000;
 opts.A0 = zeros(m,n);
 opts.B0 = zeros(m,n);
+% opts.W0 = zeros(m,n);
 opts.Lam0 = zeros(m,n);
+% opts.Lam1 = zeros(m,n);
 opts.print = 1;
-out = LADMM_r2(D, t/(1-t), opts); % Default value
+out = LADMM(D, t/(1-t), opts); % Default value
 
 
 
