@@ -1,44 +1,27 @@
-function Low_Rank_Repair
-%%
+function LADMM_Demo
+%% The target of this code is to solve the following problem
+% ----------------------------------------------------------
+% min_A,E |A|_*+alpha*|E|_1
+% subj. to B_1AB_2^T+E = D
+% ----------------------------------------------------------
 clear; clc;
 %%
 D = imread('input.png');
-D = double(D(:,:,1));
-% D = D ./ norm(D, 'fro');
-% D = D - ones(size(D,1), 1) * mean(D);
-% D = D ./ (ones(size(D,1), 1) * sqrt(sum(D.^2)));
-% D = [1 1 1; 1 0 1; 1 1 1];
+D = double(D(:,:,1)); % Only consider the first channel
 [m, n, r] = size(D);
-% Paramenter initialization
-Omega = -ones(m ,n);
-B1 = dctmtx(m)'; % DCT orthogonal mxm matrix
-B2 = dctmtx(n)'; % DCT orthogonal nxn matrix
-mask = @(M) Mask(M, Omega); % Function handle for Mask
-lambda = 0.001;
-alpha = 0.85;
-rho = 1.9; %This parameter is not specified in the papaer, however it should  > 1
-gam = 0.015;
-bet = 5;
 
-% Iterate till it gives stisfying results
-D = double(D(:, :, 1));
-while true
-	[A, W, E] = LADMM(D, B1, B2, mask, lambda, alpha, rho, 1);
-	suppE = UpdateOmega(Omega, E, bet, gam);
-	Omega = minusset(Omega, suppE);
-	imshow(A);
-end
+% Decide the second input to the solver
+t = 0.01; % This term determines the penalty
 
-function [ret] = minusset(Omega, suppE)
-[m, n] = size(Omega);
-patch = (suppE == ones(m,n));
-patch = patch(:);
-ret = Omega;
-for count = 1 : length(patch)
-    if(patch(count) == 1) 
-        ret(count) = 1;
-    end
-end
+%% algorithm
+opts = [];
+opts.beta = .25/mean(abs(D(:)));%0.10;
+opts.tol = 1e-6;
+opts.maxit = 1000;
+opts.A0 = zeros(m,n);
+opts.B0 = zeros(m,n);
+opts.Lam0 = zeros(m,n);
+opts.print = 1;
+out = LADMM_r2(D, t/(1-t), opts); % Default value
 
-ret = reshape(ret, [n, m])';
-
+%% End of the code
