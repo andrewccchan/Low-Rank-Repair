@@ -1,4 +1,4 @@
-function out = LADMM(D, tau, alpha, opts)
+function out = LADMM(D, func, tau, alpha, opts)
 
 %% Clarify the paramenters:
 % In paper:                            In this code:
@@ -59,10 +59,10 @@ end
 % main
 for iter = 1:maxit
     
-    nrmAB = norm([E,A],'fro');
+    nrmAEW = norm([E,A,W],'fro');
   
     %% W - subproblem
-    Y = W - (B1' * (B1 * W * B2' + E - D + Lambda2/beta) * B2 + W - A - Lambda1/beta)/eta1;
+    Y = W - (B1' * (func(B1 * W * B2' + E - D + Lambda2/beta)) * B2 + W - A - Lambda1/beta)/eta1;
     dW = W;
     W = sign(Y) .* max(abs(Y) - tau/beta/eta1, 0); % Equivalent to lambda/mu in the paper, eta is omitted
     dW = W - dW;
@@ -70,7 +70,7 @@ for iter = 1:maxit
     %% E - subproblem
     % Procedure of this snippest of code is to min.
     % the sparse term
-    Y = E - ( (E + B1 * W * B2' - D) + Lambda2/beta )/eta2;
+    Y = E - ( func(E + B1 * W * B2' - D) + Lambda2/beta )/eta2;
     dE = E;
     E = sign(Y) .* max(abs(Y) - alpha/beta/eta2, 0); % Equivalent to lambda/mu in the paper, eta is omitted
     dE = E - dE;
@@ -96,11 +96,11 @@ for iter = 1:maxit
     if RECORD_RES;   res = norm(E + A - D, 'fro');             out.res = [out.res; res];         end
     
     %% stopping criterion
-    RelChg = norm([dE, dA],'fro') / (1 + nrmAB);
+    RelChg = norm([dE, dA, dW],'fro') / (1 + nrmAEW);
     if print, fprintf('Iter %d, RelChg %4.2e',iter,RelChg); end
     if print && RECORD_ERRSP && RECORD_ERRLR, fprintf(', errSP %4.2e, errLR %4.2e',errSP,errLR); end
     if print, fprintf('\n'); end
-    if RelChg < tol, break; end
+    if (RelChg < tol) break; end
     
 %     if(mod(iter, 10) ~= 0) 
         figure;
@@ -108,23 +108,29 @@ for iter = 1:maxit
         subplot(1,2,2); imagesc(product); title('A');
 %     end
    
-    %% Update Lambda, this line is crucial to the whole result
-    Lambda1 = Lambda1 + beta * (E + product - D);
-   %% Normalization, edited by Andrew 
+    %% Update Lambda, these lines are crucial to the results
+    Lambda1 = Lambda1 + beta * func(E + product - D);
+    Lambda2 = Lambda2 + beta * (A - W);
+   
+    %% Normalization, edited by Andrew 
     if(E ~= 0) 
         E = E ./ norm(E, 'fro');
     end
     if(A ~= 0)
         A = A ./ norm(A, 'fro');
     end
+    if(W ~= 0)
+        W = W ./ norm(W, 'fro');
+    end
     if(Lambda1 ~= 0)
         Lambda1 = Lambda1 / norm(Lambda1, 'fro');
+        Lambda2 = Lambda2 / norm(Lambda2, 'fro');
     end    
 end
 
 % output
 out.Sparse = E;
-out.LowRank = A;
+out.LowRank = product;
 out.iter = iter;
 out.exit = 'Stopp;ed by RelChg < tol';
 if iter == maxit, out.exit = 'Maximum iteration reached'; end
