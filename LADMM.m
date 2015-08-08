@@ -51,7 +51,7 @@ eta2 = 3;
 fprintf('Beaware of the update oder');
 if(size(Lambda1, 1) < size(Lambda1,2))
     dia = size(Lambda1, 1);
-else 
+else  
     dia = size(Lambda1, 2);
 end
 % --------------------------------------
@@ -81,11 +81,12 @@ for iter = 1:maxit
     Y = W - Lambda1/beta;
     dA = A;
     [U,sig,VT] = svd(Y);
-    VT = VT';
-    sig = diag(sig);
-    ind = find(sig > 1/beta);
-    sig = diag(sig(ind) - 1/beta);
-    A = U(:,ind) * sig * VT(ind,:);
+%     VT = VT';
+%     sig = diag(sig);
+%     ind = find(sig > 1/beta);
+%     sig = diag(sig(ind) - 1/beta);
+%     A = U(:,ind) * sig * VT(ind,:);
+    A = U * (sign(sig).*max(abs(sig) - 1/beta, 0)) * VT';
     dA = A - dA;
     product = B1 * A * B2'; % This variable is used in latter code
     
@@ -102,16 +103,15 @@ for iter = 1:maxit
     if print, fprintf('\n'); end
     if (RelChg < tol) break; end
     
-%     if(mod(iter, 10) ~= 0) 
+%      if(mod(iter, 10) == 0) 
         figure;
         subplot(1,2,1); imagesc(E); title('E'); 
         subplot(1,2,2); imagesc(product); title('A');
-%     end
+%      end
    
     %% Update Lambda, these lines are crucial to the results
     Lambda1 = Lambda1 + beta * func(E + product - D);
     Lambda2 = Lambda2 + beta * (A - W);
-   
     %% Normalization, edited by Andrew 
     if(E ~= 0) 
         E = E ./ norm(E, 'fro');
@@ -131,7 +131,11 @@ end
 % output
 out.Sparse = E;
 out.LowRank = product;
+out.W = W;
+out.A = A;
+out.Lam1 = Lambda1;
+out.Lam2 = Lambda2;
 out.iter = iter;
-out.exit = 'Stopp;ed by RelChg < tol';
+out.exit = 'Stopped by RelChg < tol';
 if iter == maxit, out.exit = 'Maximum iteration reached'; end
 end
