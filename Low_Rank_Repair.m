@@ -6,11 +6,11 @@ function Low_Rank_Repair
 % ----------------------------------------------------------
 clear; clc;
 %%
-D = imread('input.png');
+D = imread('input3.png');
 [m, n, r] = size(D);
-D = double(D(:,:,1)); % Only consider the first channel
-Dmax = max(D(:))/255;
-Dmin = min(D(:))/255;
+D = double(D(:,:,3) ./ 255); % Only consider the first channel
+Dmax = max(D(:));
+Dmin = min(D(:));
 D = D ./ norm(D, 'fro');
 
 % Decide the second input to the solver
@@ -20,14 +20,14 @@ Omega = -ones(m,n);
 opts = [];
 opts.beta = .25/mean(abs(D(:)));%0.10;
 opts.tol = 7e-3;
-opts.maxit = 1000;
+opts.maxit = 400;
 opts.A0 = zeros(m,n);
 opts.E0 = zeros(m,n);
 opts.W0 = zeros(m,n);
 opts.Lam1 = zeros(m,n);
 opts.Lam2 = zeros(m,n);
 opts.print = 1;
-tolerance = [7e-3, 6e-3, 5e-3, 1e-3, 5e-4, 1e-5, 1e-6];
+tolerance = [1e-2, 7e-3, 5e-3, 1e-3, 5e-4, 1e-5, 1e-6];
 iter = 1;
 %% algorithm
 while(1)
@@ -47,7 +47,7 @@ while(1)
     E = imadjust(E, [Emin; Emax], [0, 1]);
     
     
-    suppE = UpdateOmega(Omega, E .* 255, 5, 0.3);
+    suppE = UpdateOmega(Omega, E .* 255, 5, 0.0015);
     Omega = minusset(Omega, suppE);
     imagesc(L);
     
@@ -55,8 +55,8 @@ while(1)
     opts.A0 = out.A;
     opts.W0 = out.W;
     opts.E0 = out.Sparse;
-%     opts.Lam1 = out.Lam1;
-%     opts.Lam2 = out.Lam2;
+    opts.Lam1 = out.Lam1;
+    opts.Lam2 = out.Lam2;
     
     fprintf('Press entert to continue\n');
     pause;
