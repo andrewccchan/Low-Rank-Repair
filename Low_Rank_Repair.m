@@ -6,30 +6,44 @@ function Low_Rank_Repair
 % ----------------------------------------------------------
 clear; clc;
 %%
-D = imread('input3.png');
-[m, n, r] = size(D);
-D = double(D(:,:,3) ./ 255); % Only consider the first channel
-Dmax = max(D(:));
-Dmin = min(D(:));
-D = D ./ norm(D, 'fro');
+D_ori = imread('input3.png');
+[m, n, r] = size(D_ori);
+D = zeros(m ,n);
+D_sum = zeros(m, n, 3);
+% D = double(D(:,:,3) ./ 255); % Only consider the first channel
 
-% Decide the second input to the solver
-t = 0.05; % This term determines the penalty
-Omega = -ones(m,n);
+% D = D ./ norm(D, 'fro');
 
-opts = [];
-opts.beta = .25/mean(abs(D(:)));%0.10;
-opts.tol = 7e-3;
-opts.maxit = 400;
-opts.A0 = zeros(m,n);
-opts.E0 = zeros(m,n);
-opts.W0 = zeros(m,n);
-opts.Lam1 = zeros(m,n);
-opts.Lam2 = zeros(m,n);
-opts.print = 1;
-tolerance = [1e-2, 7e-3, 5e-3, 1e-3, 5e-4, 1e-5, 1e-6];
-iter = 1;
 %% algorithm
+for channel = 1 : 3
+    % Decide the second input to the solver
+    t = 0.05; % This term determines the penalty
+    Omega = -ones(m,n);
+    % Restrict omega region
+    for ct1 = 228 : 670
+        for ct2 = 258 : 615
+            Omega(ct1, ct2) = 1;
+        end
+    end
+
+
+    D = double(D_ori(:,:,channel) ./ 255);
+    D = D ./ norm(D, 'fro');
+    Dmax = max(D(:));
+    Dmin = min(D(:));
+    
+    opts = [];
+    opts.beta = .25/mean(abs(D(:)));%0.10;
+    opts.tol = 7e-3;
+    opts.maxit = 400;
+    opts.A0 = zeros(m,n);
+    opts.E0 = zeros(m,n);
+    opts.W0 = zeros(m,n);
+    opts.Lam1 = zeros(m,n);
+    opts.Lam2 = zeros(m,n);
+    opts.print = 1;
+    tolerance = [1e-2, 7e-3, 5e-3, 1e-3, 5e-4, 1e-5, 1e-6];
+    iter = 1;
 while(1)
     opts.tol = tolerance(iter);
     mask = @(M) Mask(M, Omega);
@@ -44,7 +58,7 @@ while(1)
     E = abs(out.Sparse);
     Emax = max(E(:));
     Emin = min(E(:));
-    E = imadjust(E, [Emin; Emax], [0, 1]);
+    E = imadjust(E, [Emin; Emax], [0, 1]); % This line is very important 
     
     
     suppE = UpdateOmega(Omega, E .* 255, 5, 0.0015);
@@ -58,13 +72,20 @@ while(1)
     opts.Lam1 = out.Lam1;
     opts.Lam2 = out.Lam2;
     
-    fprintf('Press entert to continue\n');
+    option = input('Press entert to continue\n');
+    if(option == 1) 
+       break;
+    end
     pause;
     close all;
     iter = iter + 1;
+    D_sum(:,:,channel) = L;
+end
 end
 % Expand output to it's original value, error term to 255
 
+figure;
+imshow(D(1) + D(2) + D(3) );
 function [ret] = minusset(Omega, suppE)
 [m, n] = size(Omega);
 patch = (suppE == ones(m,n));
