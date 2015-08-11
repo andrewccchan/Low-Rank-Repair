@@ -15,22 +15,23 @@ D_sum = zeros(m, n, 3);
 % D = D ./ norm(D, 'fro');
 
 %% algorithm
-for channel = 1 : 3
+for channel = 3 : 3
     % Decide the second input to the solver
-    t = 0.05; % This term determines the penalty
+    t = 0.02; % This term determines the penalty
     Omega = -ones(m,n);
     % Restrict omega region
-    for ct1 = 228 : 670
+    for ct1 = 228 : 500
         for ct2 = 258 : 615
             Omega(ct1, ct2) = 1;
         end
     end
 
 
-    D = double(D_ori(:,:,channel) ./ 255);
-    D = D ./ norm(D, 'fro');
-    Dmax = max(D(:));
-    Dmin = min(D(:));
+    D = double(D_ori(:,:,channel));
+    figure; imagesc(D); pause;
+%    D = D ./ norm(D, 'fro');
+%     Dmax = max(D(:));
+%     Dmin = min(D(:));
     
     opts = [];
     opts.beta = .25/mean(abs(D(:)));%0.10;
@@ -42,26 +43,29 @@ for channel = 1 : 3
     opts.Lam1 = zeros(m,n);
     opts.Lam2 = zeros(m,n);
     opts.print = 1;
-    tolerance = [1e-2, 7e-3, 5e-3, 1e-3, 5e-4, 1e-5, 1e-6];
+    tolerance = [1e-3, 5e-4, 1e-4, 5e-5, 5e-1, 6e-5];
     iter = 1;
 while(1)
     opts.tol = tolerance(iter);
+    if(iter > 6) break; end
     mask = @(M) Mask(M, Omega);
-    figure; imagesc(Omega);
+    figure; imagesc(Omega); title('Omega');
     out = LADMM(D, mask, t/(1-t), t/(1-t), opts); % Default value
    
-    L = abs(out.LowRank);
-    Lmax = max(L(:));
-    Lmin = min(L(:));
-    L = imadjust(L, [Lmin; Lmax], [Dmin, Dmax]);
+%     L = abs(out.LowRank);
+      L = out.LowRank;
+%     Lmax = max(L(:));
+%     Lmin = min(L(:));
+%     L = imadjust(L, [Lmin; Lmax], [Dmin, Dmax]);
+%     
+%     E = abs(out.Sparse);
+      E = out.Sparse;
+%     Emax = max(E(:));
+%     Emin = min(E(:));
+%     E = imadjust(E, [Emin; Emax], [0, 1]); % This line is very important 
     
-    E = abs(out.Sparse);
-    Emax = max(E(:));
-    Emin = min(E(:));
-    E = imadjust(E, [Emin; Emax], [0, 1]); % This line is very important 
     
-    
-    suppE = UpdateOmega(Omega, E .* 255, 5, 0.0015);
+    suppE = UpdateOmega(Omega, E, 5, 0.0015);
     Omega = minusset(Omega, suppE);
     imagesc(L);
     
@@ -72,7 +76,7 @@ while(1)
     opts.Lam1 = out.Lam1;
     opts.Lam2 = out.Lam2;
     
-    option = input('Press entert to continue\n');
+    option = input('Press Enter to continue\n');
     if(option == 1) 
        break;
     end
@@ -84,8 +88,9 @@ end
 end
 % Expand output to it's original value, error term to 255
 
-figure;
-imshow(D(1) + D(2) + D(3) );
+imwrite(D_sum/255, 'out.jpg');
+
+
 function [ret] = minusset(Omega, suppE)
 [m, n] = size(Omega);
 patch = (suppE == ones(m,n));

@@ -48,7 +48,7 @@ B2 = dctmtx(n)';
 eta1 = 3; % Use the same parameter as the paper
 eta2 = 3;
 % Some reminders : 
-fprintf('Beaware of the update oder');
+fprintf('Beaware of the update order\n');
 if(size(Lambda1, 1) < size(Lambda1,2))
     dia = size(Lambda1, 1);
 else  
@@ -78,6 +78,7 @@ for iter = 1:maxit
     %% B - subprolbme, in this case A (low rank)
     % Procedure of this function is to calculate the 
     % shrinkage operator
+    
     Y = W - Lambda1/beta;
     dA = A;
     [U,sig,VT] = svd(Y);
@@ -111,23 +112,29 @@ for iter = 1:maxit
    
     %% Update Lambda, these lines are crucial to the results
     % !!!Questions
+    
     Lambda2 = Lambda2 + beta * func(E + product - D);
     Lambda1 = Lambda1 + beta * (A - W);
-    %% Normalization, edited by Andrew 
-    if(E ~= 0) 
-        E = E ./ norm(E, 'fro');
-    end
-    if(A ~= 0)
-        A = A ./ norm(A, 'fro');
-    end
-    if(W ~= 0)
-        W = W ./ norm(W, 'fro');
-    end
-    if(Lambda1 ~= 0)
-        Lambda1 = Lambda1 / norm(Lambda1, 'fro');
-        Lambda2 = Lambda2 / norm(Lambda2, 'fro');
-%         beta = beta * 1.1;
-    end    
+    
+     %% Normalization, edited by Andrew 
+%     if(W ~= 0)
+%         W = W ./ norm(W, 'fro');
+%     end
+%     if(E ~= 0) 
+%         E = E ./ norm(E, 'fro');
+%     end
+%     if(A ~= 0)
+%         A = A ./ norm(A, 'fro');
+%     end
+%     if(Lambda1 ~= 0)
+%         Lambda1 = Lambda1 / norm(Lambda1, 'fro');
+% %         beta = beta * 1.1;
+%     end 
+%     if(Lambda2 ~= 0)
+%         Lambda2 = Lambda2 / norm(Lambda2, 'fro');
+%     end
+    
+%     beta = beta * 1.3;
 end
 
 % output
