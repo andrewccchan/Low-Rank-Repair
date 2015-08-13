@@ -6,7 +6,7 @@ function Low_Rank_Repair
 % ----------------------------------------------------------
 clear; clc;
 %%
-D_ori = imread('input3.png');
+D_ori = imread('input_sim.png');
 [m, n, r] = size(D_ori);
 D = zeros(m ,n);
 D_sum = zeros(m, n, 3);
@@ -15,16 +15,16 @@ D_sum = zeros(m, n, 3);
 % D = D ./ norm(D, 'fro');
 
 %% algorithm
-for channel = 3 : 3
+for channel = 1 : 3
     % Decide the second input to the solver
     t = 0.02; % This term determines the penalty
     Omega = -ones(m,n);
     % Restrict omega region
-    for ct1 = 228 : 500
-        for ct2 = 258 : 615
-            Omega(ct1, ct2) = 1;
-        end
-    end
+%     for ct1 = 228 : 500
+%         for ct2 = 258 : 615
+%             Omega(ct1, ct2) = 1;
+%         end
+%     end
 
 
     D = double(D_ori(:,:,channel));
@@ -36,14 +36,14 @@ for channel = 3 : 3
     opts = [];
     opts.beta = .25/mean(abs(D(:)));%0.10;
     opts.tol = 7e-3;
-    opts.maxit = 400;
+    opts.maxit = 100;
     opts.A0 = zeros(m,n);
     opts.E0 = zeros(m,n);
     opts.W0 = zeros(m,n);
     opts.Lam1 = zeros(m,n);
     opts.Lam2 = zeros(m,n);
     opts.print = 1;
-    tolerance = [1e-3, 5e-4, 1e-4, 5e-5, 5e-1, 6e-5];
+    tolerance = [5e-4, 1e-4, 5e-5, 1e-5, 5e-6, 1e-6];
     iter = 1;
 while(1)
     opts.tol = tolerance(iter);
