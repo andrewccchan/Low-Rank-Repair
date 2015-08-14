@@ -1,5 +1,6 @@
 function out = LADMM(D, func, tau, alpha, opts)
-
+addpath PROPACK;
+global Y
 %% Clarify the paramenters:
 % In paper:                            In this code:
 % Y1 and Y2 : the coefficients      || Lambda : Lagrangian coefficient
@@ -25,11 +26,19 @@ if isfield(opts,'print'); print = opts.print; end
 %% initialization
 [m,n] = size(D);
 E = zeros(m,n);
-A = zeros(m,n);
+Ap = zeros(m,n);
+A = [];
+A.U = zeros(m,5);
+A.s = zeros(5,1);
+A.V = zeros(n,5);
 W = zeros(m,n);
 Lambda1 = zeros(m,n);
+sv = 5;
+svp = sv;
+svdopt = [];
+svdopt.tol = 1e-8;
 if isfield(opts,'E0');  E = opts.E0; end
-if isfield(opts,'A0');  A = opts.A0; end
+if isfield(opts,'A0');  Ap = opts.A0; end
 if isfield(opts,'W0');  W = opts.W0; end
 if isfield(opts,'Lam1'); Lambda1 = opts.Lam1; end
 if isfield(opts, 'Lam2'); Lambda2 = opts.Lam2; end
@@ -55,47 +64,68 @@ else
     dia = size(Lambda1, 2);
 end
 % --------------------------------------
-
+BWB = B1 * W * B2;
 % main
 for iter = 1:maxit
-    
-    nrmAEW = norm([E,A,W],'fro');
-  
+    nrmAEW = norm([E,Ap,W],'fro');
     %% W - subproblem
-    Y = W - (B1' * (func(B1 * W * B2' + E - D + Lambda2/beta)) * B2 + W - A - Lambda1/beta)/eta1;
+    Y = W - (B1' * (func(BWB + E - D + Lambda2/beta)) * B2 + W - Ap - Lambda1/beta)/eta1;
     dW = W;
     W = sign(Y) .* max(abs(Y) - tau/beta/eta1, 0); % Equivalent to lambda/mu in the paper, eta is omitted
-    dW = W - dW;
-
+    dW = W - dW;    
+    BWB = B1 * W * B2';
+    
     %% E - subproblem
     % Procedure of this snippest of code is to min.
     % the sparse term
-    Y = E - ( func(E + B1 * W * B2' - D) + Lambda2/beta )/eta2;
+    Y = E - ( func(E + BWB - D) + Lambda2/beta )/eta2;
     dE = E;
     E = sign(Y) .* max(abs(Y) - alpha/beta/eta2, 0); % Equivalent to lambda/mu in the paper, eta is omitted
     dE = E - dE;
-    
     %% B - subprolbme, in this case A (low rank)
     % Procedure of this function is to calculate the 
     % shrinkage operator
-    
+
+    dAp = Ap;
     Y = W - Lambda1/beta;
-    dA = A;
-    [U,sig,VT] = svd(Y);
-    VT = VT';
-    sig = diag(sig);
-    ind = find(sig > 1/beta);
-    sig = diag(sig(ind) - 1/beta);
-    A = U(:,ind) * sig * VT(ind,:);
-%     A = U * (sign(sig).*max(abs(sig) - 1/beta, 0)) * VT';
-    dA = A - dA;
-    product = B1 * A * B2'; % This variable is used in latter code
+%     [U, S, V] = lansvd('Y', 'Yt', m, n, sv, 'L', svdopt);
+    if choosvd(n, sv) == 1
+%     [U, S, V] = lansvd(Y, sv, 'L');
+    [U, S, V] = lansvd('Y', 'Yt', m, n, sv, 'L', svdopt);
+    else 
+    [U, S, V] = svd(Y, 'econ');
+    end
+%     [U, S, V] = svd(W - Lambda1/beta);
+    S = diag(S);
+    svp = length(find(S>1/(beta)));
+    if svp < sv
+        sv = min(svp + 1, n);
+    else
+        sv = min(svp + round(0.05*n), n);
+    end
     
+    if svp>=1
+        S = S(1:svp)-1/(beta);
+    else
+        svp = 1;
+        S = 0;
+    end
+    
+    A.U = U(:, 1:svp);
+    A.s = S;
+    A.V = V(:, 1:svp);
+    Ap = A.U * diag(A.s);
+    Ap = Ap * A.V';
+%     A = U * (sign(sig).*max(abs(sig) - 1/beta, 0)) * VT';
+    dA = Ap - dAp;
+    product = B1 * A.U;
+    product = product * diag(A.s);
+    product = product * A.V'*B2'; % This variable is used in latter code
     %% keep record
     if RECORD_ERRSP; errSP = norm(E - SP,'fro') / (1 + nrmSP); out.errsSP = [out.errsSP; errSP]; end
-    if RECORD_ERRLR; errLR = norm(A - LR,'fro') / (1 + nrmLR); out.errsLR = [out.errsLR; errLR]; end
+    if RECORD_ERRLR; errLR = norm(Ap - LR,'fro') / (1 + nrmLR); out.errsLR = [out.errsLR; errLR]; end
     if RECORD_OBJ;   obj = alpha*norm(E(:),1) + sum(diag(D));    out.obj = [out.obj; obj];         end
-    if RECORD_RES;   res = norm(E + A - D, 'fro');             out.res = [out.res; res];         end
+    if RECORD_RES;   res = norm(E + Ap - D, 'fro');             out.res = [out.res; res];         end
     
     %% stopping criterion
     RelChg = norm([dE, dA, dW],'fro') / (1 + nrmAEW);
@@ -104,18 +134,18 @@ for iter = 1:maxit
     if print, fprintf('\n'); end
     if (RelChg < tol) break; end
     
-     if(mod(iter, 10) == 0) 
-        figure;
-        subplot(1,2,1); imagesc(E); title('E'); 
-        subplot(1,2,2); imagesc(product); title('A');
-     end
+%      if(mod(iter, 10) == 0) 
+%         figure;
+%         subplot(1,2,1); imagesc(E); title('E'); 
+%         subplot(1,2,2); imagesc(product); title('A');
+%      end
    
     %% Update Lambda, these lines are crucial to the results
     % !!!Questions
     
     Lambda2 = Lambda2 + beta * func(E + product - D);
-    Lambda1 = Lambda1 + beta * (A - W);
-    
+    Lambda1 = Lambda1 + beta * (Ap - W);
+%     beta = beta * 1.1;
      %% Normalization, edited by Andrew 
 %     if(W ~= 0)
 %         W = W ./ norm(W, 'fro');
@@ -141,7 +171,7 @@ end
 out.Sparse = E;
 out.LowRank = product;
 out.W = W;
-out.A = A;
+out.A = Ap;
 out.Lam1 = Lambda1;
 out.Lam2 = Lambda2;
 out.iter = iter;
