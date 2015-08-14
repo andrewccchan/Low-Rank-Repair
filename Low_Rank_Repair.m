@@ -20,11 +20,11 @@ for channel = 1 : 3
     t = 0.02; % This term determines the penalty
     Omega = -ones(m,n);
     % Restrict omega region
-%     for ct1 = 228 : 500
-%         for ct2 = 258 : 615
-%             Omega(ct1, ct2) = 1;
-%         end
-%     end
+    for ct1 = 228 : 500
+        for ct2 = 258 : 615
+            Omega(ct1, ct2) = 1;
+        end
+    end
 
 
     D = double(D_ori(:,:,channel));
@@ -34,8 +34,8 @@ for channel = 1 : 3
 %     Dmin = min(D(:));
     
     opts = [];
-    opts.beta = .25/mean(abs(D(:)));%0.10;
-    opts.tol = 7e-3;
+    opts.beta = 0.0001; %.25/mean(abs(D(:)));%0.10;
+    opts.tol = 1e-3;
     opts.maxit = 100;
     opts.A0 = zeros(m,n);
     opts.E0 = zeros(m,n);
@@ -43,11 +43,9 @@ for channel = 1 : 3
     opts.Lam1 = zeros(m,n);
     opts.Lam2 = zeros(m,n);
     opts.print = 1;
-    tolerance = [5e-4, 1e-4, 5e-5, 1e-5, 5e-6, 1e-6];
+
     iter = 1;
 while(1)
-    opts.tol = tolerance(iter);
-    if(iter > 6) break; end
     mask = @(M) Mask(M, Omega);
     figure; imagesc(Omega); title('Omega');
     out = LADMM(D, mask, t/(1-t), t/(1-t), opts); % Default value
